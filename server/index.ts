@@ -73,6 +73,8 @@ if (isProduction) {
       server: {
         middlewareMode: true,
         hmr: { server },
+        host: "0.0.0.0",
+        allowedHosts: true,
       },
       appType: "custom",
     });
@@ -80,7 +82,7 @@ if (isProduction) {
     app.use(vite.middlewares);
 
     app.use("/api", async (req, res) => {
-      const targetUrl = `http://127.0.0.1:${apiPort}${req.url}`;
+      const targetUrl = `http://127.0.0.1:${apiPort}/api${req.url}`;
       try {
         const response = await fetch(targetUrl, {
           method: req.method,
