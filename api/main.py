@@ -148,7 +148,8 @@ def seed_database():
     finally:
         db.close()
 
-seed_database()
+if is_dev:
+    seed_database()
 
 app.include_router(routes.router, prefix="/api")
 

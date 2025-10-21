@@ -1,8 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+from pydantic.alias_generators import to_camel
 from typing import Optional, List, Dict
 from datetime import datetime
 
 class TaskBase(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    
     title: str
     description: Optional[str] = None
     status: str = "pending"
@@ -21,6 +24,8 @@ class TaskCreate(TaskBase):
     pass
 
 class TaskUpdate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
@@ -36,13 +41,14 @@ class TaskUpdate(BaseModel):
     completed_at: Optional[datetime] = None
 
 class Task(TaskBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, alias_generator=to_camel)
+    
     id: str
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 class GoalBase(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    
     title: str
     description: Optional[str] = None
     type: str
@@ -56,6 +62,8 @@ class GoalCreate(GoalBase):
     pass
 
 class GoalUpdate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    
     title: Optional[str] = None
     description: Optional[str] = None
     type: Optional[str] = None
@@ -66,13 +74,14 @@ class GoalUpdate(BaseModel):
     completed_at: Optional[datetime] = None
 
 class Goal(GoalBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, alias_generator=to_camel)
+    
     id: str
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 class PomodoroSessionBase(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    
     task_id: Optional[str] = None
     focus_duration: int
     break_duration: int
@@ -83,13 +92,14 @@ class PomodoroSessionCreate(PomodoroSessionBase):
     pass
 
 class PomodoroSession(PomodoroSessionBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, alias_generator=to_camel)
+    
     id: str
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 class UserSettingsBase(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    
     pomodoro_focus_duration: int = 25
     pomodoro_break_duration: int = 5
     theme: str = "dark"
@@ -100,6 +110,8 @@ class UserSettingsBase(BaseModel):
     last_study_date: Optional[datetime] = None
 
 class UserSettingsUpdate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    
     pomodoro_focus_duration: Optional[int] = None
     pomodoro_break_duration: Optional[int] = None
     theme: Optional[str] = None
@@ -110,17 +122,20 @@ class UserSettingsUpdate(BaseModel):
     last_study_date: Optional[datetime] = None
 
 class UserSettings(UserSettingsBase):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, alias_generator=to_camel)
+    
     id: str
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 class SubjectDistribution(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    
     subject: str
     minutes: int
 
 class AnalyticsSummary(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    
     total_study_time: int
     today_study_time: int
     week_study_time: int
@@ -132,6 +147,8 @@ class AnalyticsSummary(BaseModel):
     focus_efficiency: int
 
 class DailyStats(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+    
     date: str
     total_minutes_studied: int
     tasks_completed: int
