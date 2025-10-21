@@ -1,0 +1,12 @@
+node_modules
+.pythonlibs
+dist
+.git
+.env
+*.log
+__pycache__
+*.pyc
+.DS_Store
+.replit
+.local
+attached_assets

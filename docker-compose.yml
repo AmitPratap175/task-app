@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: studyflow-db
+    environment:
+      POSTGRES_USER: studyflow
+      POSTGRES_PASSWORD: studyflow_password
+      POSTGRES_DB: studyflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studyflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: studyflow-app
+    environment:
+      DATABASE_URL: postgresql://studyflow:studyflow_password@db:5432/studyflow
+      NODE_ENV: production
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.pythonlibs
+    command: npm start
+
+volumes:
+  postgres_data:
