@@ -152,14 +152,24 @@ seed_database()
 
 app.include_router(routes.router, prefix="/api")
 
-if not is_dev:
-    app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+import os.path as path_exists
+
+if not is_dev and path_exists.exists("dist/public"):
+    app.mount("/assets", StaticFiles(directory="dist/public/assets"), name="assets")
     
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         if full_path.startswith("api"):
             return {"message": "Not found"}
-        return FileResponse("dist/index.html")
+        return FileResponse("dist/public/index.html")
+elif path_exists.exists("dist/public"):
+    app.mount("/assets", StaticFiles(directory="dist/public/assets"), name="assets")
+    
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api"):
+            return {"message": "Not found"}
+        return FileResponse("dist/public/index.html")
 
 if __name__ == "__main__":
     import uvicorn
