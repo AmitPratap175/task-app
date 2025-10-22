@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -30,8 +40,10 @@ import {
   ChevronRight,
   Link as LinkIcon,
   Trash2,
+  Edit,
+  Search,
 } from "lucide-react";
-import type { Task, TaskWithSubtasks } from "@shared/schema";
+import type { Task, TaskWithSubtasks, UserSettings } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTaskSchema } from "@shared/schema";
@@ -54,7 +66,6 @@ const taskFormSchema = insertTaskSchema.extend({
 
 type TaskFormData = z.infer<typeof taskFormSchema>;
 
-const SUBJECTS = ["Math", "Physics", "Chemistry", "Biology", "History", "English", "Other"];
 const PRIORITIES = [
   { value: "critical", label: "Critical", color: "destructive" },
   { value: "important", label: "Important", color: "primary" },
@@ -63,9 +74,22 @@ const PRIORITIES = [
 
 export default function Tasks() {
   const [filter, setFilter] = useState<"all" | "pending" | "in_progress" | "completed">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const { data: settings } = useQuery<UserSettings>({
+    queryKey: ["/api/settings"],
+  });
+
+  const subjects = settings?.customSubjects || ["Math", "Physics", "Chemistry", "Biology", "History", "English", "Computer Science", "Other"];
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
@@ -106,6 +130,23 @@ export default function Tasks() {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/summary"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/daily"] });
+      if (editDialogOpen) {
+        toast({
+          title: "Task updated",
+          description: "Your task has been updated successfully.",
+        });
+        setEditDialogOpen(false);
+        setEditingTask(null);
+      }
+    },
+    onError: () => {
+      if (editDialogOpen) {
+        toast({
+          title: "Error",
+          description: "Failed to update task. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -146,8 +187,57 @@ export default function Tasks() {
     },
   });
 
+  const editForm = useForm<TaskFormData>({
+    resolver: zodResolver(taskFormSchema),
+  });
+
   const onSubmit = async (data: TaskFormData) => {
     createTaskMutation.mutate(data);
+  };
+
+  const onEditSubmit = async (data: TaskFormData) => {
+    if (!editingTask) return;
+    const payload = {
+      ...data,
+      deadline: data.deadline ? new Date(data.deadline) : undefined,
+    };
+    updateTaskMutation.mutate({
+      id: editingTask.id,
+      data: toCamelCase(payload),
+    });
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    editForm.reset({
+      title: task.title,
+      description: task.description || "",
+      status: task.status,
+      priority: task.priority,
+      subject: task.subject || "",
+      deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : "",
+      estimatedDuration: task.estimatedDuration || 0,
+      resources: task.resources || [],
+      isRecurring: task.isRecurring || false,
+      recurringSchedule: task.recurringSchedule || "",
+      parentTaskId: task.parentTaskId || "",
+      actualDuration: task.actualDuration || 0,
+      completedAt: task.completedAt,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    setTaskToDelete(taskId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (taskToDelete) {
+      deleteTaskMutation.mutate(taskToDelete);
+      setDeleteDialogOpen(false);
+      setTaskToDelete(null);
+    }
   };
 
   const handleTaskToggle = (task: Task) => {
@@ -180,10 +270,27 @@ export default function Tasks() {
     {} as Record<string, TaskWithSubtasks[]>
   );
 
-  const filteredTasks =
+  let filteredTasks =
     filter === "all"
       ? Object.values(groupedTasks).flat()
       : groupedTasks[filter] || [];
+
+  if (searchQuery) {
+    const query = searchQuery.toLowerCase();
+    filteredTasks = filteredTasks.filter(
+      (task) =>
+        task.title.toLowerCase().includes(query) ||
+        (task.description && task.description.toLowerCase().includes(query))
+    );
+  }
+
+  if (subjectFilter !== "all") {
+    filteredTasks = filteredTasks.filter((task) => task.subject === subjectFilter);
+  }
+
+  if (priorityFilter !== "all") {
+    filteredTasks = filteredTasks.filter((task) => task.priority === priorityFilter);
+  }
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -286,7 +393,7 @@ export default function Tasks() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {SUBJECTS.map((subject) => (
+                            {subjects.map((subject) => (
                               <SelectItem key={subject} value={subject}>
                                 {subject}
                               </SelectItem>
@@ -390,23 +497,250 @@ export default function Tasks() {
             </Form>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Task</DialogTitle>
+              <DialogDescription>
+                Update the task details
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <FormField
+                  control={editForm.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Task Title</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., Revise Chapter 5 Physics"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Add any additional details..."
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="subject"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subject</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select subject" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {subjects.map((subject) => (
+                              <SelectItem key={subject} value={subject}>
+                                {subject}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="priority"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Priority</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select priority" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {PRIORITIES.map((priority) => (
+                              <SelectItem key={priority.value} value={priority.value}>
+                                {priority.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="deadline"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Deadline</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="datetime-local"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="estimatedDuration"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estimated Duration (minutes)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="60"
+                            {...field}
+                            value={field.value || ""}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value ? parseInt(e.target.value) : undefined
+                              )
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={updateTaskMutation.isPending}
+                  >
+                    {updateTaskMutation.isPending ? "Updating..." : "Update Task"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the task.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
-      <div className="flex gap-2">
-        {["all", "pending", "in_progress", "completed"].map((status) => (
-          <Button
-            key={status}
-            variant={filter === status ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter(status as typeof filter)}
-            data-testid={`filter-${status}`}
-          >
-            {status === "all"
-              ? "All"
-              : status.charAt(0).toUpperCase() +
-                status.slice(1).replace("_", " ")}
-          </Button>
-        ))}
+      <div className="space-y-4">
+        <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex-1 min-w-[200px] max-w-md relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-tasks"
+            />
+          </div>
+
+          <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+            <SelectTrigger className="w-[180px]" data-testid="select-filter-subject">
+              <SelectValue placeholder="All Subjects" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Subjects</SelectItem>
+              {subjects.map((subject) => (
+                <SelectItem key={subject} value={subject}>
+                  {subject}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[180px]" data-testid="select-filter-priority">
+              <SelectValue placeholder="All Priorities" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              {PRIORITIES.map((priority) => (
+                <SelectItem key={priority.value} value={priority.value}>
+                  {priority.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex gap-2">
+          {["all", "pending", "in_progress", "completed"].map((status) => (
+            <Button
+              key={status}
+              variant={filter === status ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilter(status as typeof filter)}
+              data-testid={`filter-${status}`}
+            >
+              {status === "all"
+                ? "All"
+                : status.charAt(0).toUpperCase() +
+                  status.slice(1).replace("_", " ")}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {filteredTasks.length === 0 ? (
@@ -462,6 +796,24 @@ export default function Tasks() {
                         <Badge variant={getPriorityColor(task.priority) as any}>
                           {task.priority}
                         </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleEditTask(task)}
+                          data-testid={`button-edit-task-${task.id}`}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteTask(task.id)}
+                          data-testid={`button-delete-task-${task.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
 

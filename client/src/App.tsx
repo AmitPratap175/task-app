@@ -12,6 +12,7 @@ import Tasks from "@/pages/tasks";
 import Pomodoro from "@/pages/pomodoro";
 import Goals from "@/pages/goals";
 import Analytics from "@/pages/analytics";
+import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/pomodoro" component={Pomodoro} />
       <Route path="/goals" component={Goals} />
       <Route path="/analytics" component={Analytics} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );

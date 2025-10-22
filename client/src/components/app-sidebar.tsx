@@ -4,6 +4,7 @@ import {
   Timer,
   Target,
   BarChart3,
+  Settings,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -48,6 +49,12 @@ const menuItems = [
     url: "/analytics",
     icon: BarChart3,
     testId: "nav-analytics",
+  },
+  {
+    title: "Settings",
+    url: "/settings",
+    icon: Settings,
+    testId: "nav-settings",
   },
 ];
 

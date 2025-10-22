@@ -140,6 +140,7 @@ def seed_database():
             current_streak=3,
             longest_streak=5,
             last_study_date=datetime.now(),
+            custom_subjects=["Math", "Physics", "Chemistry", "Biology", "History", "English", "Computer Science", "Other"],
             updated_at=datetime.now()
         )
         db.add(settings)

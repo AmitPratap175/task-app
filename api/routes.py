@@ -279,3 +279,55 @@ def get_daily_stats(db: Session = Depends(get_db)):
     daily_stats.sort(key=lambda x: x.date)
     
     return daily_stats
+
+@router.post("/subjects", status_code=201)
+def add_subject(subject: str, db: Session = Depends(get_db)):
+    settings = db.query(models.UserSettings).first()
+    if not settings:
+        settings = models.UserSettings()
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+    
+    if not settings.custom_subjects:
+        settings.custom_subjects = []
+    
+    if subject not in settings.custom_subjects:
+        settings.custom_subjects = settings.custom_subjects + [subject]
+        settings.updated_at = datetime.now()
+        db.commit()
+        db.refresh(settings)
+    
+    return {"subject": subject, "subjects": settings.custom_subjects}
+
+@router.delete("/subjects/{subject}", status_code=200)
+def delete_subject(subject: str, db: Session = Depends(get_db)):
+    settings = db.query(models.UserSettings).first()
+    if not settings or not settings.custom_subjects:
+        raise HTTPException(status_code=404, detail="No subjects found")
+    
+    if subject in settings.custom_subjects:
+        settings.custom_subjects = [s for s in settings.custom_subjects if s != subject]
+        settings.updated_at = datetime.now()
+        db.commit()
+        db.refresh(settings)
+    
+    return {"subjects": settings.custom_subjects}
+
+@router.post("/reset-all", status_code=200)
+def reset_all_data(db: Session = Depends(get_db)):
+    db.query(models.Task).delete()
+    db.query(models.Goal).delete()
+    db.query(models.PomodoroSession).delete()
+    
+    settings = db.query(models.UserSettings).first()
+    if settings:
+        settings.current_streak = 0
+        settings.longest_streak = 0
+        settings.last_study_date = None
+        settings.custom_subjects = ["Math", "Physics", "Chemistry", "Biology", "History", "English", "Computer Science", "Other"]
+        settings.updated_at = datetime.now()
+    
+    db.commit()
+    
+    return {"message": "All data has been reset successfully"}

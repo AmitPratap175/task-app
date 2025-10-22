@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Target, Calendar, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Plus, Target, Calendar, TrendingUp, CheckCircle2, Edit, Trash2 } from "lucide-react";
 import type { Goal } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -48,6 +59,10 @@ type GoalFormData = z.infer<typeof goalFormSchema>;
 export default function Goals() {
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [goalToDelete, setGoalToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: goals = [], isLoading } = useQuery<Goal[]>({
@@ -80,6 +95,49 @@ export default function Goals() {
     },
   });
 
+  const updateGoalMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Goal> }) =>
+      apiRequest("PATCH", `/api/goals/${id}`, toCamelCase(data)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
+      if (editDialogOpen) {
+        toast({
+          title: "Goal updated",
+          description: "Your goal has been updated successfully.",
+        });
+        setEditDialogOpen(false);
+        setEditingGoal(null);
+      }
+    },
+    onError: () => {
+      if (editDialogOpen) {
+        toast({
+          title: "Error",
+          description: "Failed to update goal. Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  const deleteGoalMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/goals/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
+      toast({
+        title: "Goal deleted",
+        description: "The goal has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete goal. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const form = useForm<GoalFormData>({
     resolver: zodResolver(goalFormSchema),
     defaultValues: {
@@ -94,8 +152,59 @@ export default function Goals() {
     },
   });
 
+  const editForm = useForm<GoalFormData>({
+    resolver: zodResolver(goalFormSchema),
+  });
+
   const onSubmit = async (data: GoalFormData) => {
     createGoalMutation.mutate(data);
+  };
+
+  const onEditSubmit = async (data: GoalFormData) => {
+    if (!editingGoal) return;
+    const payload = {
+      ...data,
+      targetDate: new Date(data.targetDate),
+    };
+    updateGoalMutation.mutate({
+      id: editingGoal.id,
+      data: toCamelCase(payload),
+    });
+  };
+
+  const handleEditGoal = (goal: Goal) => {
+    setEditingGoal(goal);
+    editForm.reset({
+      title: goal.title,
+      description: goal.description || "",
+      type: goal.type,
+      targetDate: new Date(goal.targetDate).toISOString().split('T')[0],
+      status: goal.status,
+      progress: goal.progress,
+      relatedTaskIds: goal.relatedTaskIds || [],
+      completedAt: goal.completedAt,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteGoal = (goalId: string) => {
+    setGoalToDelete(goalId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (goalToDelete) {
+      deleteGoalMutation.mutate(goalToDelete);
+      setDeleteDialogOpen(false);
+      setGoalToDelete(null);
+    }
+  };
+
+  const handleProgressChange = (goalId: string, newProgress: number) => {
+    updateGoalMutation.mutate({
+      id: goalId,
+      data: { progress: newProgress },
+    });
   };
 
   const filteredGoals =
@@ -259,6 +368,133 @@ export default function Goals() {
             </Form>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Goal</DialogTitle>
+              <DialogDescription>
+                Update your goal details
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <FormField
+                  control={editForm.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Goal Title</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., Complete 5 Math chapters"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Describe your goal..."
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Goal Type</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="targetDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Target Date</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={updateGoalMutation.isPending}
+                  >
+                    {updateGoalMutation.isPending ? "Updating..." : "Update Goal"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the goal.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <div className="flex gap-2">
@@ -309,6 +545,24 @@ export default function Goals() {
                           {goal.status === "completed" && (
                             <CheckCircle2 className="h-4 w-4 text-chart-3" />
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleEditGoal(goal)}
+                            data-testid={`button-edit-goal-${goal.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteGoal(goal.id)}
+                            data-testid={`button-delete-goal-${goal.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     </CardHeader>
@@ -324,7 +578,14 @@ export default function Goals() {
                           <span className="text-sm font-medium">Progress</span>
                           <span className="text-sm font-bold">{goal.progress}%</span>
                         </div>
-                        <Progress value={goal.progress} className="h-2" />
+                        <Progress value={goal.progress} className="h-2 mb-2" />
+                        <Slider
+                          value={[goal.progress]}
+                          onValueChange={(value) => handleProgressChange(goal.id, value[0])}
+                          max={100}
+                          step={5}
+                          className="w-full"
+                        />
                       </div>
 
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">

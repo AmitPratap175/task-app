@@ -59,4 +59,5 @@ class UserSettings(Base):
     current_streak = Column(Integer, nullable=False, default=0)
     longest_streak = Column(Integer, nullable=False, default=0)
     last_study_date = Column(DateTime)
+    custom_subjects = Column(ARRAY(Text), default=lambda: ["Math", "Physics", "Chemistry", "Biology", "History", "English", "Computer Science", "Other"])
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())

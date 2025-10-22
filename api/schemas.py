@@ -108,6 +108,7 @@ class UserSettingsBase(BaseModel):
     current_streak: int = 0
     longest_streak: int = 0
     last_study_date: Optional[datetime] = None
+    custom_subjects: List[str] = ["Math", "Physics", "Chemistry", "Biology", "History", "English", "Computer Science", "Other"]
 
 class UserSettingsUpdate(BaseModel):
     model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
@@ -120,6 +121,7 @@ class UserSettingsUpdate(BaseModel):
     current_streak: Optional[int] = None
     longest_streak: Optional[int] = None
     last_study_date: Optional[datetime] = None
+    custom_subjects: Optional[List[str]] = None
 
 class UserSettings(UserSettingsBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, alias_generator=to_camel)
