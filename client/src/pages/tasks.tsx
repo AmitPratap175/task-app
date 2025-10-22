@@ -196,9 +196,13 @@ export default function Tasks() {
   };
 
   const onEditSubmit = async (data: TaskFormData) => {
-    if (!editingTask) return;
+    if (!editingTask) {
+      console.error("Attempted to submit edit form without an editingTask.");
+      return;
+    }
     const payload = {
       ...data,
+      id: editingTask.id, // Explicitly add the ID to the payload
       deadline: data.deadline ? new Date(data.deadline) : undefined,
     };
     updateTaskMutation.mutate({
@@ -221,8 +225,6 @@ export default function Tasks() {
       isRecurring: task.isRecurring || false,
       recurringSchedule: task.recurringSchedule || "",
       parentTaskId: task.parentTaskId || "",
-      actualDuration: task.actualDuration || 0,
-      completedAt: task.completedAt,
     });
     setEditDialogOpen(true);
   };

@@ -65,10 +65,9 @@ def update_task(task_id: str, task_update: schemas.TaskUpdate, db: Session = Dep
         update_data["completed_at"] = datetime.now()
         update_streak(db)
     
-    for key, value in update_data.items():
-        setattr(db_task, key, value)
-    
+    db.query(models.Task).filter(models.Task.id == task_id).update(update_data)
     db.commit()
+    db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
     db.refresh(db_task)
     return db_task
 

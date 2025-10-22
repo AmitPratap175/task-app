@@ -82,6 +82,7 @@ export const userSettings = pgTable("user_settings", {
   currentStreak: integer("current_streak").notNull().default(0),
   longestStreak: integer("longest_streak").notNull().default(0),
   lastStudyDate: timestamp("last_study_date"),
+  customSubjects: text("custom_subjects").array().default(['Math', 'Physics', 'Chemistry', 'Biology', 'History', 'English', 'Computer Science', 'Other']),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 

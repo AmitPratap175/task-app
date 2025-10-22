@@ -61,10 +61,25 @@ NODE_ENV=development
 PORT=5000
 ```
 
-5. Run database migrations (if applicable)
-```bash
-# Tables will be created automatically on first run
-```
+### Database Migrations
+
+This project uses Drizzle ORM for managing database schema migrations.
+
+1.  **Generate a new migration file:**
+    If you make changes to `shared/schema.ts`, you need to generate a new migration file.
+    ```bash
+    DATABASE_URL=postgresql://studyflow:studyflow_password@localhost:5432/studyflow npx drizzle-kit generate
+    ```
+    Replace `postgresql://studyflow:studyflow_password@localhost:5432/studyflow` with your actual `DATABASE_URL`.
+
+2.  **Apply pending migrations:**
+    To apply all pending migrations to your database:
+    ```bash
+    DATABASE_URL=postgresql://studyflow:studyflow_password@localhost:5432/studyflow npx drizzle-kit migrate
+    ```
+    Replace `postgresql://studyflow:studyflow_password@localhost:5432/studyflow` with your actual `DATABASE_URL`.
+
+    **Note:** If you encounter errors like "relation 'table_name' already exists" when running `npx drizzle-kit migrate` on an existing database (e.g., one initialized by SQLAlchemy), you might need to manually apply only the `ALTER TABLE` statements from the generated migration files. You can find these SQL statements in the `migrations/` directory.
 
 ### Development
 

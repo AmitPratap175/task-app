@@ -1,0 +1,1 @@
+ALTER TABLE "user_settings" ADD COLUMN "custom_subjects" text[] DEFAULT '{"Math","Physics","Chemistry","Biology","History","English","Computer Science","Other"}';
