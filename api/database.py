@@ -2,6 +2,9 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/defaultdb")
 
@@ -10,7 +13,6 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_recycle=300,
     connect_args={
-        "sslmode": "require",
         "connect_timeout": 10,
     }
 )

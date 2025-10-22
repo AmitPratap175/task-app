@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/form";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { toCamelCase } from "@/lib/utils";
 
 const taskFormSchema = insertTaskSchema.extend({
   deadline: z.string().optional(),
@@ -76,7 +77,7 @@ export default function Tasks() {
         ...data,
         deadline: data.deadline ? new Date(data.deadline) : undefined,
       };
-      return apiRequest("POST", "/api/tasks", payload);
+      return apiRequest("POST", "/api/tasks", toCamelCase(payload));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -100,7 +101,7 @@ export default function Tasks() {
 
   const updateTaskMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<Task> }) =>
-      apiRequest("PATCH", `/api/tasks/${id}`, data),
+      apiRequest("PATCH", `/api/tasks/${id}`, toCamelCase(data)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/summary"] });

@@ -37,9 +37,10 @@ import {
 } from "@/components/ui/form";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { toCamelCase } from "@/lib/utils";
 
 const goalFormSchema = insertGoalSchema.extend({
-  targetDate: z.string(),
+  targetDate: z.string().min(1, "Target date is required"),
 });
 
 type GoalFormData = z.infer<typeof goalFormSchema>;
@@ -59,7 +60,7 @@ export default function Goals() {
         ...data,
         targetDate: new Date(data.targetDate),
       };
-      return apiRequest("POST", "/api/goals", payload);
+      return apiRequest("POST", "/api/goals", toCamelCase(payload));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/goals"] });
