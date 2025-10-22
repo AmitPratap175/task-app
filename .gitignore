@@ -9,3 +9,5 @@ vite.config.ts.*
 *.pyc
 __pycache__
 *.bin
+android
+capacitor*

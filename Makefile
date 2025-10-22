@@ -6,5 +6,7 @@ stop:
 	podman-compose down
 
 build: 
+	uv venv -n
+	. .venv/bin/activate && uv sync
 	podman-compose build db
 	@make run

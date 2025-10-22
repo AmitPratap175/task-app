@@ -443,6 +443,7 @@ export default function Tasks() {
                         <FormControl>
                           <Input
                             type="datetime-local"
+                            className="dark:[color-scheme:dark]"
                             {...field}
                             value={field.value || ""}
                             data-testid="input-task-deadline"
